@@ -14,27 +14,26 @@ func main() {
 	// Load environment variables
 	godotenv.Load()
 
-	// Initialize database
+	// Initialize database connection
 	config.InitializeDB()
 
 	// Create Gin router
 	r := gin.Default()
 
-	// Initialize handlers
+	// Initialize handlers with database instance
 	authHandler := handlers.NewAuthHandler(config.DB)
 
-	// Routes
-	api := r.Group("/api/v1")
+	// Public routes
+	r.POST("/signup", authHandler.Signup)
+	r.POST("/login", authHandler.Login)
+	r.POST("/reset-password", authHandler.RequestPasswordReset)
+
+	// Protected admin routes
+	admin := r.Group("/admin")
+	admin.Use(middleware.AuthMiddleware())
+	admin.Use(middleware.AdminMiddleware(config.DB)) // Inject DB to admin middleware
 	{
-		api.POST("/signup", authHandler.Signup)
-		api.POST("/login", authHandler.Login)
-		api.POST("/reset-password", authHandler.RequestPasswordReset)
-		
-		admin := api.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
-		{
-			admin.GET("/approve-user/:id", authHandler.ApproveUser)
-		}
+		admin.GET("/approve-user/:id", authHandler.ApproveUser)
 	}
 
 	// Start server

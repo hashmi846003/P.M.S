@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"your-app-name/internal/models"
+	"internal/models"
 )
 
 type AuthHandler struct {

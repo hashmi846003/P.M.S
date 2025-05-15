@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 	"os"
-	"your-app-name/internal/models"
+	"internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
