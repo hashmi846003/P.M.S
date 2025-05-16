@@ -11,35 +11,40 @@ import (
 )
 
 func main() {
-	// Load environment variables
 	godotenv.Load()
-
-	// Initialize database connection
 	config.InitializeDB()
 
-	// Create Gin router
 	r := gin.Default()
 
-	// Initialize handlers with database instance
 	authHandler := handlers.NewAuthHandler(config.DB)
+	pageHandler := handlers.NewPageHandler(config.DB)
 
 	// Public routes
 	r.POST("/signup", authHandler.Signup)
 	r.POST("/login", authHandler.Login)
-	r.POST("/reset-password", authHandler.RequestPasswordReset)
 
-	// Protected admin routes
-	admin := r.Group("/admin")
-	admin.Use(middleware.AuthMiddleware())
-	admin.Use(middleware.AdminMiddleware(config.DB)) // Inject DB to admin middleware
+	// Authenticated routes
+	auth := r.Group("/").Use(middleware.AuthMiddleware())
 	{
-		admin.GET("/approve-user/:id", authHandler.ApproveUser)
+		auth.GET("/pages", pageHandler.GetAllPages)
+		auth.POST("/pages", pageHandler.CreatePage)
+		auth.GET("/pages/:id", pageHandler.GetPage)
+		auth.PUT("/pages/:id", pageHandler.UpdatePage)
+		auth.DELETE("/pages/:id", pageHandler.DeletePage)
+		auth.POST("/pages/:id/duplicate", pageHandler.DuplicatePage)
+		auth.POST("/pages/:id/favorite", pageHandler.ToggleFavorite)
+		auth.POST("/pages/:id/move-to-trash", pageHandler.MoveToTrash)
+		auth.POST("/pages/:id/restore", pageHandler.RestorePage)
+		auth.POST("/pages/:id/discussions", pageHandler.AddDiscussion)
+		auth.GET("/search", pageHandler.SearchPages)
 	}
 
-	// Start server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	// Admin routes
+	admin := auth.Group("/admin").Use(middleware.AdminMiddleware(config.DB))
+	{
+		admin.GET("/trash", pageHandler.GetTrash)
+		admin.DELETE("/trash/:id", pageHandler.PermanentlyDeletePage)
 	}
-	r.Run(":" + port)
+
+	r.Run(":" + os.Getenv("PORT"))
 }

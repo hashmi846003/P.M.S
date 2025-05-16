@@ -3,7 +3,7 @@ package config
 import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"your-app-name/internal/models"
+	"internal/models"
 )
 
 var DB *gorm.DB
@@ -15,6 +15,10 @@ func InitializeDB() {
 		panic("failed to connect database")
 	}
 	
-	// Auto migrate models
-	DB.AutoMigrate(&models.User{})
+	DB.AutoMigrate(
+		&models.User{},
+		&models.Page{},
+		&models.Discussion{},
+		&models.PageHistory{},
+	)
 }
