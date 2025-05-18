@@ -1,44 +1,17 @@
-/*package models
+package models
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+	"time"
+)
 
 type User struct {
 	gorm.Model
-	Email         string `gorm:"uniqueIndex;not null;size:255"`
-	Password      string `gorm:"not null;size:255"`
-	AdminApproval bool   `gorm:"default:false;index"`
-	IsAdmin       bool   `gorm:"default:false;index"`
-	Pages         []Page `gorm:"foreignKey:AuthorID"`
-}*/
-/*// user.go
-package models
-
-type User struct {
-	gorm.Model
-	Email         string `gorm:"uniqueIndex;size:255"`
-	Password      string `gorm:"size:255"`
-	AdminApproval bool
-	IsAdmin       bool
-}
-
-// page.go
-package models
-
-type Page struct {
-	gorm.Model
-	Title      string
-	Content    string `gorm:"type:text"`
-	AuthorID   uint
-	IsFavorite bool
-	IsTrash    bool
-	ParentID   *uint
-}*/
-package models
-import "gorm.io/gorm"
-type User struct {
-	gorm.Model
-	Email         string `gorm:"uniqueIndex;size:255"`
-	Password      string `gorm:"size:255"`
-	AdminApproval bool
-	IsAdmin       bool
+	Email     string `gorm:"uniqueIndex;not null"`
+	Password  string `gorm:"not null"`
+	Status    string `gorm:"default:'pending'"`
+	Role      string `gorm:"default:'user'"`
+	Pages     []Page `gorm:"foreignKey:UserID"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

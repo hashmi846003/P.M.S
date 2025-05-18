@@ -1,75 +1,66 @@
 package main
 
 import (
+	"log"
 	"os"
-	"internal/config"
-	"internal/handlers"
-	"internal/middleware"
-	"time"
-	"github.com/gin-contrib/cors"
+	
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"your-app/internal/handlers"
+	"your-app/internal/middleware"
+	"your-app/internal/models"
+	"your-app/internal/repository"
+	"your-app/pkg/database"
 )
 
 func main() {
-	godotenv.Load()
-	config.InitializeDB()
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
-	r := gin.Default()
+	// Initialize database
+	db, err := database.NewPostgresDB()
+	if err != nil {
+		log.Fatal("Database connection failed: ", err)
+	}
 
-	// Configure CORS
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{os.Getenv("FRONTEND_URL")},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowHeaders:     []string{"Authorization", "Content-Type"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	// Auto migrate models
+	if err := db.AutoMigrate(&models.User{}, &models.Page{}); err != nil {
+		log.Fatal("Migration failed: ", err)
+	}
 
-	authHandler := handlers.NewAuthHandler(config.DB)
-	pageHandler := handlers.NewPageHandler(config.DB)
+	// Initialize repositories
+	userRepo := repository.NewUserRepository(db)
+	pageRepo := repository.NewPageRepository(db)
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(userRepo)
+	pageHandler := handlers.NewPageHandler(pageRepo)
+
+	// Create Gin router
+	router := gin.Default()
 
 	// Public routes
-	r.POST("/signup", authHandler.Signup)
-	r.POST("/login", authHandler.Login)
+	router.POST("/signup", authHandler.Signup)
+	router.POST("/login", authHandler.Login)
 
 	// Authenticated routes
-	auth := r.Group("/")
-	auth.Use(
-		middleware.AuthMiddleware(),
-		middleware.UserLoaderMiddleware(config.DB),
-		middleware.ActiveUserMiddleware(),
-	)
+	authGroup := router.Group("/")
+	authGroup.Use(middleware.JWTAuthMiddleware())
 	{
-		// Pages
-		auth.GET("/pages", pageHandler.GetAllPages)
-		auth.POST("/pages", pageHandler.CreatePage)
-		auth.GET("/pages/:id", pageHandler.GetPage)
-		auth.PUT("/pages/:id", pageHandler.UpdatePage)
-		auth.DELETE("/pages/:id", pageHandler.DeletePage)
-		auth.POST("/pages/:id/duplicate", pageHandler.DuplicatePage)
-		auth.POST("/pages/:id/favorite", pageHandler.ToggleFavorite)
-		auth.POST("/pages/:id/move-to-trash", pageHandler.MoveToTrash)
-		auth.POST("/pages/:id/restore", pageHandler.RestorePage)
-
-		// Discussions
-		auth.POST("/pages/:id/discussions", pageHandler.AddDiscussion)
-
-		// Search
-		auth.GET("/search", pageHandler.SearchPages)
+		authGroup.GET("/pages", pageHandler.GetAllPages)
+		authGroup.POST("/pages", pageHandler.CreatePage)
+		authGroup.GET("/pages/:id", pageHandler.GetPageByID)
+		authGroup.PUT("/pages/:id", pageHandler.UpdatePage)
+		authGroup.DELETE("/pages/:id", pageHandler.DeletePage)
 	}
 
-	// Admin routes
-	admin := r.Group("/admin")
-	admin.Use(
-		middleware.AdminMiddleware(config.DB),
-		middleware.RateLimiter(50, time.Minute),
-	)
-	{
-		admin.GET("/trash", pageHandler.GetTrash)
-		admin.DELETE("/trash/:id", pageHandler.PermanentlyDeletePage)
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
-
-	r.Run(":" + os.Getenv("PORT"))
+	log.Printf("Server running on port %s", port)
+	router.Run(":" + port)
 }
