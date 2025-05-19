@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"os"
 	"time"
-	
+
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
 	"github.com/golang-jwt/jwt/v4"
-	"your-app/internal/models"
-	"your-app/internal/repository"
+	"golang.org/x/crypto/bcrypt"
+	"github.com/hashmi846003/P.M.S/internal/models"
+	"github.com/hashmi846003/P.M.S/internal/repository"
 )
 
 type AuthHandler struct {
@@ -34,7 +34,7 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 	}
 
 	user.Password = string(hashedPassword)
-	if err := h.userRepo.CreateUser(c.Request.Context(), &user); err != nil {
+	if err := h.userRepo.Create(c.Request.Context(), &user); err != nil { // Changed here
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
 	}
@@ -53,8 +53,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userRepo.GetUserByEmail(c.Request.Context(), creds.Email)
-	if err != nil {
+	user, err := h.userRepo.GetByEmail(c.Request.Context(), creds.Email) // Changed here
+	if err != nil || user == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}

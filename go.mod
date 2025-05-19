@@ -1,12 +1,14 @@
-module COOLAB-DOC-BACKEND
+module github.com/hashmi846003/P.M.S
 
 go 1.23.0
 
 toolchain go1.23.9
 
 require (
+	github.com/enescakir/emoji v1.0.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.38.0
 	gorm.io/driver/postgres v1.5.11

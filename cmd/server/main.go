@@ -3,57 +3,90 @@ package main
 import (
 	"log"
 	"os"
-	
+	"time"
+	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"your-app/internal/handlers"
-	"your-app/internal/middleware"
-	"your-app/internal/models"
-	"your-app/internal/repository"
-	"your-app/pkg/database"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"github.com/hashmi846003/P.M.S/internal/handlers"
+	"github.com/hashmi846003/P.M.S/internal/middleware"
+	"github.com/hashmi846003/P.M.S/internal/models"
+	"github.com/hashmi846003/P.M.S/internal/repository"
 )
 
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file - make sure it exists in the project root")
 	}
 
 	// Initialize database
-	db, err := database.NewPostgresDB()
+	db, err := initDatabase()
 	if err != nil {
 		log.Fatal("Database connection failed: ", err)
 	}
 
-	// Auto migrate models
-	if err := db.AutoMigrate(&models.User{}, &models.Page{}); err != nil {
+	// Run migrations
+	if err := db.AutoMigrate(
+		&models.User{},
+		&models.Page{},
+		&models.PageVersion{},
+		&models.Discussion{},
+	); err != nil {
 		log.Fatal("Migration failed: ", err)
 	}
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	pageRepo := repository.NewPageRepository(db)
+	discussionRepo := repository.NewDiscussionRepository(db)
 
-	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(userRepo)
-	pageHandler := handlers.NewPageHandler(pageRepo)
+	// Initialize handlers and middleware
+	authMiddleware := middleware.NewAuthMiddleware(userRepo)
+	pageHandler := handlers.NewPageHandler(pageRepo, discussionRepo)
+	emojiHandler := handlers.NewEmojiHandler()
 
-	// Create Gin router
+	// Create Gin router with middleware
 	router := gin.Default()
-
+	
 	// Public routes
-	router.POST("/signup", authHandler.Signup)
-	router.POST("/login", authHandler.Login)
+	public := router.Group("/auth")
+	public.POST("/signup", authMiddleware.SignupHandler)
+	public.POST("/login", authMiddleware.LoginHandler)
 
 	// Authenticated routes
-	authGroup := router.Group("/")
-	authGroup.Use(middleware.JWTAuthMiddleware())
+	auth := router.Group("/")
+	auth.Use(authMiddleware.MiddlewareFunc())
 	{
-		authGroup.GET("/pages", pageHandler.GetAllPages)
-		authGroup.POST("/pages", pageHandler.CreatePage)
-		authGroup.GET("/pages/:id", pageHandler.GetPageByID)
-		authGroup.PUT("/pages/:id", pageHandler.UpdatePage)
-		authGroup.DELETE("/pages/:id", pageHandler.DeletePage)
+		// Page management
+		auth.GET("/pages", pageHandler.ListPages)
+		auth.POST("/pages", pageHandler.CreatePage)
+		auth.GET("/pages/:id", pageHandler.GetPage)
+		auth.PUT("/pages/:id", pageHandler.UpdatePage)
+		auth.DELETE("/pages/:id", pageHandler.DeletePage)
+		auth.POST("/pages/:id/restore", pageHandler.RestorePage)
+		auth.POST("/pages/:id/favorite", pageHandler.ToggleFavorite)
+		auth.POST("/pages/:id/duplicate", pageHandler.DuplicatePage)
+		auth.GET("/pages/:id/versions", pageHandler.GetVersions)
+
+		// Discussions
+		auth.POST("/pages/:id/discussions", pageHandler.CreateDiscussion)
+		auth.GET("/pages/:id/discussions", pageHandler.GetDiscussions)
+
+		// Formatting operations
+		auth.POST("/pages/:id/format", pageHandler.FormatContent)
+		auth.POST("/pages/:id/align", pageHandler.AlignText)
+
+		// Emoji operations
+		auth.GET("/emojis", emojiHandler.ListEmojis)
+		auth.GET("/emojis/categories", emojiHandler.GetCategories)
+		auth.POST("/pages/:id/emoji", pageHandler.AddEmoji)
+
+		// Sharing and utilities
+		auth.POST("/pages/:id/share", pageHandler.GenerateShareLink)
+		auth.GET("/trash", pageHandler.ListTrash)
+		auth.POST("/pages/:id/move-to-trash", pageHandler.MoveToTrash)
 	}
 
 	// Start server
@@ -61,6 +94,29 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      router,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+
 	log.Printf("Server running on port %s", port)
-	router.Run(":" + port)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal("Server failed to start: ", err)
+	}
+}
+
+func initDatabase() (*gorm.DB, error) {
+	dsn := "host=" + os.Getenv("DB_HOST") +
+		" user=" + os.Getenv("DB_USER") +
+		" password=" + os.Getenv("DB_PASSWORD") +
+		" dbname=" + os.Getenv("DB_NAME") +
+		" port=" + os.Getenv("DB_PORT") +
+		" sslmode=disable"
+
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{
+		NowFunc: func() time.Time { return time.Now().UTC() },
+	})
 }

@@ -1,17 +1,36 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"time"
+	
+	"github.com/google/uuid"
 )
 
 type Page struct {
-	gorm.Model
-	Title      string `gorm:"not null"`
-	Content    string `gorm:"type:text"`
-	UserID     uint   `gorm:"not null"`
-	IsDeleted  bool   `gorm:"default:false"`
-	IsFavorite bool   `gorm:"default:false"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID          uuid.UUID  `gorm:"type:uuid;primary_key"`
+	Title       string
+	Content     string
+	ParentID    *uuid.UUID `gorm:"type:uuid"`
+	UserID      uuid.UUID  `gorm:"type:uuid"`
+	IsDeleted   bool
+	IsFavorite  bool
+	Emoji       string
+	Icon        string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type PageVersion struct {
+	ID        uuid.UUID `gorm:"type:uuid;primary_key"`
+	PageID    uuid.UUID `gorm:"type:uuid"`
+	Content   string
+	CreatedAt time.Time
+}
+
+type Discussion struct {
+	ID        uuid.UUID `gorm:"type:uuid;primary_key"`
+	PageID    uuid.UUID `gorm:"type:uuid"`
+	UserID    uuid.UUID `gorm:"type:uuid"`
+	Content   string
+	CreatedAt time.Time
 }
