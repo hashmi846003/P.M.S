@@ -13,6 +13,7 @@ import (
 	"github.com/hashmi846003/P.M.S/internal/middleware"
 	"github.com/hashmi846003/P.M.S/internal/models"
 	"github.com/hashmi846003/P.M.S/internal/repository"
+	 "github.com/hashmi846003/P.M.S/internal/.env"
 )
 
 func main() {
