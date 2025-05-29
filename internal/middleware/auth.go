@@ -78,6 +78,25 @@ func (m *AuthMiddleware) MiddlewareFunc() gin.HandlerFunc {
 		c.Next()
 	}
 }
+// File: internal/middleware/auth.go (add AdminMiddlewareFunc)
+// Add to existing AuthMiddleware struct
+
+func (m *AuthMiddleware) AdminMiddlewareFunc() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, exists := c.Get("user")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			return
+		}
+		
+		u := user.(*models.User)
+		if !u.IsAdmin {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+			return
+		}
+		c.Next()
+	}
+}
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`

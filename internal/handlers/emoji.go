@@ -1,4 +1,4 @@
-// internal/handlers/emoji.go
+
 package handlers
 
 import (
